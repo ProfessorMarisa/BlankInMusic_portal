@@ -65,7 +65,7 @@ public class BlankInMusic extends JavaPlugin {
       SheetMusicConfig.clearConfig();
       loadOnlinePlayerMutes(); // 연주차단은 저장된 설정이므로 초기화 후 다시 불러온다
       // 버저닝 MAJOR.업데이트-횟수.릴리즈-일자
-      sendMessage(sender, PLUGIN_TITLE + "현재 플러그인 버전 1.21.20230427 | 변수들이 초기화 되었습니다!");
+      sendMessage(sender, PLUGIN_TITLE + "현재 플러그인 버전 1.22.20261106 | 변수들이 초기화 되었습니다!");
       return true;
     }
 
