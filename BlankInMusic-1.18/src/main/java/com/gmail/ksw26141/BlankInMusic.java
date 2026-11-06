@@ -3,6 +3,7 @@ package com.gmail.ksw26141;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -11,11 +12,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 
@@ -42,10 +45,15 @@ public class BlankInMusic extends JavaPlugin implements Listener {
     HashMap<String, String> followList = new HashMap<>();
     BukkitScheduler scheduler = getServer().getScheduler();
     boolean flg = false;
+    NamespacedKey muteKey;
 
     @Override
     public void onEnable() {
+        muteKey = new NamespacedKey(this, "instrument_mute");
         getServer().getPluginManager().registerEvents(this, this);
+        for (Player online : getServer().getOnlinePlayers()) {//리로드 시 접속 중인 플레이어 연주차단 복원
+            loadMute(online);
+        }
         getLogger().info(PluginTitle + "작동 시작");
     }
 
@@ -53,6 +61,20 @@ public class BlankInMusic extends JavaPlugin implements Listener {
     public void onDisable() {
         saveConfig();
         getLogger().info(PluginTitle + "작동 중지");
+    }
+
+    public void loadMute(Player user) {//저장된 연주차단 상태 불러오기
+        if (user.getPersistentDataContainer().has(muteKey, PersistentDataType.BYTE)) {
+            muteList.put(user.getName(), true);
+        }
+    }
+
+    public void saveMute(Player user, boolean mute) {//연주차단 상태를 플레이어 데이터에 저장
+        if (mute) {
+            user.getPersistentDataContainer().set(muteKey, PersistentDataType.BYTE, (byte) 1);
+        } else {
+            user.getPersistentDataContainer().remove(muteKey);
+        }
     }
 
     public void sendMessage(CommandSender sender, String Message) {
@@ -67,6 +89,9 @@ public class BlankInMusic extends JavaPlugin implements Listener {
             sheetList.clear();
             sheetIter.clear();
             followList.clear();
+            for (Player online : getServer().getOnlinePlayers()) {//연주차단은 저장된 설정이므로 다시 불러옴
+                loadMute(online);
+            }
             sendMessage(sender, PluginTitle + "현재 플러그인 버전 15.20210302 | 변수들이 초기화 되었습니다!");
             return true;//명령어 처리에서 true 발생시 최종적으로 true 반환
         } else if (smartMusic(sender, cmd, player)) {
@@ -106,6 +131,11 @@ public class BlankInMusic extends JavaPlugin implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {//저장된 연주차단 상태 복원
+        loadMute(event.getPlayer());
     }
 
     @EventHandler
@@ -164,9 +194,15 @@ public class BlankInMusic extends JavaPlugin implements Listener {
             String playerName = sender.getName();
             if (muteList.containsKey(playerName)) {
                 muteList.remove(playerName);
+                if (sender instanceof Player) {
+                    saveMute((Player) sender, false);
+                }
                 sender.sendMessage(GreenTitle + "연주 소리 차단이 해제되었습니다.");
             } else {
                 muteList.put(playerName, true);
+                if (sender instanceof Player) {
+                    saveMute((Player) sender, true);
+                }
                 sender.sendMessage(RedTitle + "연주 소리가 차단 되었습니다.");
             }
             return true;

@@ -3,7 +3,6 @@ package blankin.music;
 import static blankin.music.Constants.GREEN_PREFIX;
 import static blankin.music.Constants.PLUGIN_TITLE;
 import static blankin.music.Constants.RED_PREFIX;
-import static blankin.music.config.SheetMusicConfig.InstrumentMutePlayers;
 import static blankin.music.config.SheetMusicConfig.PlayerFollowing;
 import static blankin.music.config.SheetMusicConfig.PlayerSheet;
 import static blankin.music.config.SheetMusicConfig.PlayerSheetIndex;
@@ -15,7 +14,9 @@ import static org.bukkit.ChatColor.RED;
 
 import blankin.music.config.SheetMusicConfig;
 import blankin.music.eventListener.PlayerInstrumentInteractHandler;
+import blankin.music.eventListener.PlayerJoinHandler;
 import blankin.music.eventListener.PlayerQuitHandler;
+import blankin.music.util.InstrumentMuteUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,10 +37,19 @@ public class BlankInMusic extends JavaPlugin {
 
   @Override
   public void onEnable() {
+    InstrumentMuteUtil.init(this);
     var pluginManager = getServer().getPluginManager();
     pluginManager.registerEvents(new PlayerInstrumentInteractHandler(getConfig()), this);
+    pluginManager.registerEvents(new PlayerJoinHandler(), this);
     pluginManager.registerEvents(new PlayerQuitHandler(), this);
+    loadOnlinePlayerMutes(); // 리로드 시 이미 접속해 있는 플레이어
     getLogger().warning(PLUGIN_TITLE + "작동 시작");
+  }
+
+  private void loadOnlinePlayerMutes() {
+    for (var player : getServer().getOnlinePlayers()) {
+      InstrumentMuteUtil.loadMute(player);
+    }
   }
 
   @Override
@@ -53,6 +63,7 @@ public class BlankInMusic extends JavaPlugin {
   public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
     if ("blankinmusic".equalsIgnoreCase(command.getName())) { //플러그인 재설정
       SheetMusicConfig.clearConfig();
+      loadOnlinePlayerMutes(); // 연주차단은 저장된 설정이므로 초기화 후 다시 불러온다
       // 버저닝 MAJOR.업데이트-횟수.릴리즈-일자
       sendMessage(sender, PLUGIN_TITLE + "현재 플러그인 버전 1.21.20230427 | 변수들이 초기화 되었습니다!");
       return true;
@@ -132,12 +143,10 @@ public class BlankInMusic extends JavaPlugin {
 
     switch (command.getName()) {
       case "연주차단" -> {
-        if (InstrumentMutePlayers.contains(playerUUID)) {
-          InstrumentMutePlayers.remove(playerUUID);
-          player.sendRawMessage(GREEN_PREFIX + "연주 소리 차단이 해제되었습니다.");
-        } else {
-          InstrumentMutePlayers.add(playerUUID);
+        if (InstrumentMuteUtil.toggleMute(player)) {
           player.sendRawMessage(RED_PREFIX + "연주 소리가 차단 되었습니다.");
+        } else {
+          player.sendRawMessage(GREEN_PREFIX + "연주 소리 차단이 해제되었습니다.");
         }
         return true;
       }
